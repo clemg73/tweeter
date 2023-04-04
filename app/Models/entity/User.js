@@ -13,7 +13,7 @@ const _connectionUser = require('../../database.js');
 const _bddUser = require('../../config/bddConfig');
 var ObjectId = require('mongodb').ObjectId;
 class User extends _ModelUser {
-    constructor(_id, tag, password, pseudo, photo, followers, follow, description, dateInscription, likesTweet) {
+    constructor(_id, tag, password, pseudo, photo, followers, follow, description, dateInscription, likesTweet, reTweet) {
         super();
         this._id = _id;
         this.tag = tag;
@@ -25,6 +25,7 @@ class User extends _ModelUser {
         this.description = description;
         this.dateInscription = dateInscription;
         this.likesTweet = likesTweet;
+        this.reTweet = reTweet;
     }
     verify() {
         return (this.tag !== undefined && this.password !== undefined && this.pseudo !== undefined && this.photo !== undefined);

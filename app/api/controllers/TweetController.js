@@ -5,12 +5,22 @@ const tweetController = {}
 var ObjectId = require('mongodb').ObjectId;
 
 /*
+COMMANDES
 npx tsc 
+
+A FAIRE PRIO 1
+*sensification a la casse pour la creaation de compte et pour la recherche de pseudo
+enlever les champs qui faut pas envoyer pour le random user
+refaire conv
+
+A FAIRE PRIO 2
 Test
 Documentation
 reauthentification
-upload image
-json de tweetoffollow 
+faire des retweet avec un message en plus
+baniere
+image dans un tweet
+
 */ 
 
 tweetController.getTweets = async (req,res)=> {
@@ -18,17 +28,31 @@ tweetController.getTweets = async (req,res)=> {
         const tweets = await Tweet.getWithFilters()
         let tweetsWithDetails = []
         for (const tweet of tweets) {
-            tweet.userDetails = (await User.getWithFilters({"_id":new ObjectId(tweet.userId)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0 }))[0]
+            tweet.userDetails = (await User.getWithFilters({"_id":new ObjectId(tweet.userId)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0,reTweet:0 }))[0]
 
             if(tweet.comments){
                 for (const comment of tweet.comments) {
-                    comment.userDetails = (await User.getWithFilters({"_id":new ObjectId(comment.userId)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0 }))[0]
+                    comment.userDetails = (await User.getWithFilters({"_id":new ObjectId(comment.userId)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0,reTweet:0 }))[0]
                 }
             }else{
                 tweet.retweet = await Tweet.getWithFilters({"_id":new ObjectId(tweet.tweetId)})
-                tweet.retweet.userDetails = (await User.getWithFilters({"_id":new ObjectId(req.params.id)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0 }))[0]
-
+                let userD = await User.getWithFilters({"_id":new ObjectId(tweet.retweet[0].userId)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0,reTweet:0 })
+                tweet.retweet[0].userDetails = userD[0]
             }
+            const userLikes = await User.getWithFilters({"_id":new ObjectId(req.auth.userId )},{_id:0, password: 0,tag:0,pseudo:0,photo:0,followers:0,follow:0,description:0,dateInscription:0,})
+            if(userLikes.length>0){
+                if(userLikes[0].likesTweet.includes(tweet._id.toString()))
+                    tweet.likeByUser = true
+                else
+                    tweet.likeByUser = false
+
+                if(userLikes[0].reTweet.includes(tweet._id.toString()))
+                    tweet.reTweetByUser = true
+                else
+                    tweet.reTweetByUser = false
+            }
+            
+                
             tweetsWithDetails.push(tweet)
 
         }
@@ -69,17 +93,31 @@ tweetController.getTweetsOfFollows = async (req,res)=> {
                     const tweets = await Tweet.getWithFilters(obj)
                 
                     for (const tweet of tweets) {
-                        tweet.userDetails = (await User.getWithFilters({"_id":new ObjectId(req.params.id)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0 }))[0]
+                        tweet.userDetails = (await User.getWithFilters({"_id":new ObjectId(req.params.id)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0,reTweet:0 }))[0]
     
                         if(tweet.comments){
                             for (const comment of tweet.comments) {
-                                comment.userDetails = (await User.getWithFilters({"_id":new ObjectId(comment.userId)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0 }))[0]
+                                comment.userDetails = (await User.getWithFilters({"_id":new ObjectId(comment.userId)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0,reTweet:0 }))[0]
                             }
                         }else{
                             tweet.retweet = await Tweet.getWithFilters({"_id":new ObjectId(tweet.tweetId)})
-                            tweet.retweet.userDetails = (await User.getWithFilters({"_id":new ObjectId(req.params.id)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0 }))[0]
-    
+                            let userD = await User.getWithFilters({"_id":new ObjectId(tweet.retweet[0].userId)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0,reTweet:0 })
+                            tweet.retweet[0].userDetails = userD[0]
                         }
+
+                        const userLikes = await User.getWithFilters({"_id":new ObjectId(req.auth.userId )},{_id:0, password: 0,tag:0,pseudo:0,photo:0,followers:0,follow:0,description:0,dateInscription:0,})
+                        if(userLikes.length>0){
+                            if(userLikes[0].likesTweet.includes(tweet._id.toString()))
+                                tweet.likeByUser = true
+                            else
+                                tweet.likeByUser = false
+            
+                            if(userLikes[0].reTweet.includes(tweet._id.toString()))
+                                tweet.reTweetByUser = true
+                            else
+                                tweet.reTweetByUser = false
+                        }
+                        
                         tweetsWithDetails.push(tweet)
 
                     
@@ -144,6 +182,8 @@ tweetController.reTweet = async (req,res)=> {
                 const docs1 = await Tweet.insertMany([retweet])
                 const docs2 = await Tweet.updateMany({"_id":new ObjectId(req.body.tweetId)}, { $inc: { "numRetweet": 1 } })
 
+                let resp = await User.updateMany({"_id":new ObjectId(req.body.userId)}, { $push: { "reTweet": req.body.tweetId } })
+
                 res.status(200).json(docs1[0])
             } else{
                 res.status(400).json("Un champ est manquant")
@@ -175,31 +215,41 @@ tweetController.putMessageTweetById = async (req,res)=> {
 }
 tweetController.putLikeTweetById = async (req,res)=> {
     try {
-        const tweet = await Tweet.getWithFilters({"_id":new ObjectId(req.params.id)})
-        if(tweet.userId == req.auth.userId)
+        if(req.body.userId == req.auth.userId)
         {
-            const docs = await Tweet.updateMany({"_id":new ObjectId(req.params.id)}, { $inc: { "numLike": req.body.numLike } })
-            let resp = null
+            let respTweet = null
+            let respUser = null
+            const userLikes = await User.getWithFilters({"_id":new ObjectId(req.body.userId)},{_id:0,tag:0,pseudo:0,photo:0,followers:0,description:0,dateInscription:0,password: 0,follow:0,reTweet:0 })
             if(req.body.numLike > 0){
-                resp = await User.updateMany({"_id":new ObjectId(req.body.userId)}, { $push: { likesTweet: req.params.id } })
+                console.log(userLikes)
+                if(!(userLikes[0].likesTweet.includes(req.params.id)))
+                {
+                    respUser = await Tweet.updateMany({"_id":new ObjectId(req.params.id)}, { $inc: { "numLike": req.body.numLike } })
+                    respTweet = await User.updateMany({"_id":new ObjectId(req.body.userId)}, { $push: { likesTweet: req.params.id } })
+                }
             }else{
-                resp = await User.updateMany({"_id":new ObjectId(req.body.userId)}, { $pull: { likesTweet: req.params.id } })
+                if(userLikes[0].likesTweet.includes(req.params.id))
+                {
+                    respUser = await Tweet.updateMany({"_id":new ObjectId(req.params.id)}, { $inc: { "numLike": req.body.numLike } })
+                    respTweet = await User.updateMany({"_id":new ObjectId(req.body.userId)}, { $pull: { likesTweet: req.params.id } })
+                }
             }
-            if(docs == 0 || !resp)
+            if(respUser == 0 || !respTweet)
                 res.status(404).send("")
             else
-                res.status(200).json(docs)
+                res.status(200).json()
         }else{
-            res.status(401).send("")
+            res.status(401).send("Pas le bon user")
         }
     } catch (err) {
+        throw err
         res.status(404).send({err})
     }
 }
 tweetController.deleteTweetsById = async (req,res)=> {
     try {
         const tweet = await Tweet.getWithFilters({"_id":new ObjectId(req.params.id)})
-        if(tweet.userId == req.auth.userId)
+        if(tweet[0].userId == req.auth.userId)
         {
             const docs = await Tweet.deleteMany({"_id":new ObjectId(req.params.id)})
             if(docs == 0)

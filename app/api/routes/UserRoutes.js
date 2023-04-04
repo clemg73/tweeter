@@ -10,14 +10,14 @@ router.get('/', auth, userController.getUsers)
 router.get('/(:id)', auth, userController.getUserById)
 router.get('/tag/(:tag)', auth, userController.getUserByTag)
 router.post('/connexion', userController.connexion)
-router.post('/', multer, userController.postUser)
+router.post('/', userController.postUser)
 router.put('/follow', auth, userController.putUserFollow)
 router.put('/(:id)', auth, userController.putUserById)
 router.get('/followers/(:id)', auth, userController.getFollowersByUserId)
 router.get('/follows/(:id)', auth, userController.getFollowsByUserId)
 router.get('/likes/(:id)', auth, userController.getLikesTweetsByUserId)
-router.get('/random/(:num)', auth, userController.getRandom)
-
+router.get('/random/(:num)', userController.getRandom)
+router.put('/photo/(:id)', multer, auth, userController.putPhotoUser)
 //router.delete('/(:id)', userController.deleteUser)
 
 

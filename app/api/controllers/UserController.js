@@ -4,6 +4,7 @@ const userController = {}
 var ObjectId = require('mongodb').ObjectId;
 const bcrypt = require("bcrypt")
 const fs = require('fs');
+require('dotenv')
 
 userController.getUsers = async (req,res)=> {
     try {
@@ -25,6 +26,7 @@ userController.getUserById = async (req,res)=> {
     }
 }
 userController.connexion = async (req,res)=> {
+    console.log(process.env)
     try {
         const docs = await User.getWithFilters(
             {"tag":req.body.tag})
@@ -40,7 +42,7 @@ userController.connexion = async (req,res)=> {
             delete docs[0].password
             docs[0].token = jwt.sign(
                 { userId: docs[0]._id },
-                'RANDOM_TOKEN_SECRET',
+                "qsdfFGfKCKGCcgjcgcUCJucimfdLGJCGKgvcJVjgCLJgvgCVJg",
                 { expiresIn: '24h' }
             )
             res.status(200).json(docs[0]);
@@ -55,7 +57,7 @@ userController.connexion = async (req,res)=> {
 }
 userController.getUserByTag = async (req,res)=> {
     try {
-        const docs = await User.getWithFilters({"tag":req.params.tag},{ password: 0 })
+        const docs = await User.getWithFilters({"tag":req.params.tag.toLowerCase()},{ password: 0 })
         if(docs == 0)
             res.status(404).send("")
         else
@@ -65,12 +67,10 @@ userController.getUserByTag = async (req,res)=> {
     }
 }
 userController.postUser = async (req,res)=> {
-    console.log(req)
-    console.log(JSON.parse(req.body.data).tag)
+   
     try {
-        let data = JSON.parse(req.body.data)
-        let img = `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
-        let user = new User(null,  data.tag, data.password, data.pseudo, img, [],  [], data.description, new Date(),[])
+        let data = req.body
+        let user = new User(null,  data.tag.toLowerCase(), data.password, data.pseudo, "", [],  [], data.description, new Date(),[],[])
         if(!user.verify())
         {
             res.status(400).json("Un champ est manquant")
@@ -93,12 +93,32 @@ userController.postUser = async (req,res)=> {
         res.status(400).send({err})
     }
 }
+userController.putPhotoUser = async (req,res)=> {
+    try {
+        if(req.auth.userId == req.params.id)
+        {
+            
+            let set = {
+                "photo":`${req.protocol}://${req.get('host')}/images/${req.file.filename}`
+            }
+            const docs = await User.updateMany({"_id":new ObjectId(req.params.id)}, {$set : set})
+            if(docs == 0)
+                res.status(404).send("Aucune propriété n'a changé")
+            else
+                res.status(200).json(docs)
+        }else{
+            res.status(401).send("")
+        }
+    } catch (err) {
+        res.status(404).send({err})
+    }
+}
 userController.putUserById = async (req,res)=> {
     try {
         if(req.auth.userId == req.params.id)
         {
             //Vérifie si les props du body sont bien des props de User
-            let user = new User(null,  null, null, null, null, null, null, null, null)
+            let user = new User(null,  null, null, null, null, null, null, null, null,null,null)
             Object.keys(req.body).forEach(key => {
                 if(!user.hasOwnProperty(key))
                     delete req.body[key]
@@ -143,7 +163,7 @@ userController.putUserFollow = async (req,res)=> {
 }
 userController.getFollowersByUserId = async (req,res)=> {
     try {
-        const docs = await User.getWithFilters({"_id":new ObjectId(req.params.id)},{_id:0,tag:0,pseudo:0,photo:0,follow:0,description:0,dateInscription:0,password: 0,likesTweet:0 })
+        const docs = await User.getWithFilters({"_id":new ObjectId(req.params.id)},{_id:0,tag:0,pseudo:0,photo:0,follow:0,description:0,dateInscription:0,password: 0,likesTweet:0,reTweet:0 })
         if(docs == 0)
             res.status(404).send("")
         else
@@ -154,7 +174,7 @@ userController.getFollowersByUserId = async (req,res)=> {
 }
 userController.getFollowsByUserId = async (req,res)=> {
     try {
-        const docs = await User.getWithFilters({"_id":new ObjectId(req.params.id)},{_id:0,tag:0,pseudo:0,photo:0,followers:0,description:0,dateInscription:0,password: 0,likesTweet:0 })
+        const docs = await User.getWithFilters({"_id":new ObjectId(req.params.id)},{_id:0,tag:0,pseudo:0,photo:0,followers:0,description:0,dateInscription:0,password: 0,likesTweet:0,reTweet:0 })
         if(docs == 0)
             res.status(404).send("")
         else
@@ -165,7 +185,7 @@ userController.getFollowsByUserId = async (req,res)=> {
 }
 userController.getLikesTweetsByUserId = async (req,res)=> {
     try {
-        const docs = await User.getWithFilters({"_id":new ObjectId(req.params.id)},{_id:0,tag:0,pseudo:0,photo:0,followers:0,description:0,dateInscription:0,password: 0,follow:0 })
+        const docs = await User.getWithFilters({"_id":new ObjectId(req.params.id)},{_id:0,tag:0,pseudo:0,photo:0,followers:0,description:0,dateInscription:0,password: 0,follow:0,reTweet:0 })
         if(docs == 0)
             res.status(404).send("")
         else

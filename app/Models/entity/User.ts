@@ -16,8 +16,9 @@ class User extends _ModelUser{
     description:String
     dateInscription:Date
     likesTweet:String[]
+    reTweet:String[]
     
-    constructor(_id:String, tag:String, password:String, pseudo:String, photo:String, followers:String[], follow:String[], description:String, dateInscription:Date,likesTweet:String[]) {
+    constructor(_id:String, tag:String, password:String, pseudo:String, photo:String, followers:String[], follow:String[], description:String, dateInscription:Date,likesTweet:String[],reTweet:String[]) {
         super()
         this._id = _id
         this.tag = tag
@@ -29,6 +30,7 @@ class User extends _ModelUser{
         this.description = description
         this.dateInscription = dateInscription
         this.likesTweet = likesTweet
+        this.reTweet = reTweet
     }
 
     verify(){
