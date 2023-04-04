@@ -4,7 +4,7 @@ const User = require('../../Models/entity/User')
 const conversationController = {}
 var ObjectId = require('mongodb').ObjectId;
 
-conversationController.postConversation = async (req,res)=> {
+/*conversationController.postConversation = async (req,res)=> {
     try {
         let conv = new Conversation(null,  req.body.user1Id, req.body.user2Id,[])
         if(!conv.verify())
@@ -73,6 +73,77 @@ conversationController.getConversationByUserId = async (req,res)=> {
         }else{
             res.status(401).send("")
         }
+    } catch (err) {
+        res.status(400).send({err})
+    }
+}*/
+
+conversationController.postPrivateMessage = async (req,res)=> {
+    try {
+        let obj = {
+            "message":req.body.message,
+            "date":new Date(),
+            "sender":req.auth.userId,
+            "recipient":req.body.userId
+        }
+        let alreadyHaveConveration = await Conversation.getWithFilters({ "usersId": { $all: [req.auth.userId, req.body.userId] } })
+        if(alreadyHaveConveration.length == 0)
+        {
+            let jsonToCreate = {
+                "messages":[obj],
+                "usersId":[
+                    req.auth.userId, 
+                    req.body.userId
+                ]
+            }
+            await Conversation.insertMany([jsonToCreate])
+        }else{
+            await Conversation.updateMany({"_id":new ObjectId(alreadyHaveConveration[0]._id)}, { $push: { "messages": obj } })
+        }    
+        res.status(201).send()
+    } catch (err) {
+        res.status(400).send({err})
+    }
+}
+conversationController.getConversationsMessages = async (req,res)=> {
+    try {
+        let conversation = await Conversation.getWithFilters({ "usersId": { $all: [req.auth.userId, req.params.id] } })
+        if(conversation.length == 0)
+        {
+            res.status(404).send("No conversation between the current user and the user pass on params")
+        }else{
+            conversation[0].user = await User.getWithFilters({"_id":new ObjectId(req.params.id)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0,reTweet:0 })
+            for (const message of conversation[0].messages) {
+                if(message.sender==req.auth.userId)
+                    message.user = true
+                else
+                    message.user = false
+                delete message.sender
+                delete message.recipient
+            }
+            delete conversation[0].usersId
+            res.status(200).send(conversation[0])
+        }    
+    } catch (err) {
+        res.status(400).send({err})
+    }
+}
+conversationController.getConversationsListes = async (req,res)=> {
+    try {
+        let conversations = await Conversation.getWithFilters({ "usersId": { $all: [req.auth.userId] } })
+        let users = []
+        if(conversations.length == 0)
+        {
+            res.status(200).send([])
+        }else{
+            for (const conv of conversations) {
+                if(conv.usersId[0]==req.auth.userId)
+                    users.push((await User.getWithFilters({"_id":new ObjectId(conv.usersId[1])},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0,reTweet:0 }))[0])
+                if(conv.usersId[1]==req.auth.userId)
+                    users.push((await User.getWithFilters({"_id":new ObjectId(conv.usersId[0])},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0,reTweet:0 }))[0])
+            }
+            res.status(200).send(users)
+        }    
     } catch (err) {
         res.status(400).send({err})
     }
