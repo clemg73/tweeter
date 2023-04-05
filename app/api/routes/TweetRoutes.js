@@ -5,7 +5,7 @@ var router = express.Router();
 const auth = require('../middleware/auth');
 
 //Routes pour le controller tweet
-router.get('/', auth,tweetController.getTweets)
+router.get('/',tweetController.getTweets)
 router.get('/(:id)', auth,tweetController.getTweetById)
 router.post('/', auth,tweetController.postTweet)
 router.delete('/(:id)', auth,tweetController.deleteTweetsById)

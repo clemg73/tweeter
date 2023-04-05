@@ -110,7 +110,17 @@ conversationController.getConversationsMessages = async (req,res)=> {
         let conversation = await Conversation.getWithFilters({ "usersId": { $all: [req.auth.userId, req.params.id] } })
         if(conversation.length == 0)
         {
-            res.status(404).send("No conversation between the current user and the user pass on params")
+            //res.status(404).send("No conversation between the current user and the user pass on params")
+            let jsonToCreate = {
+                "messages":[obj],
+                "usersId":[
+                    req.auth.userId, 
+                    req.body.userId
+                ]
+            }
+            await Conversation.insertMany([jsonToCreate])
+            res.status(200).send(jsonToCreate)
+
         }else{
             conversation[0].user = await User.getWithFilters({"_id":new ObjectId(req.params.id)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0,reTweet:0 })
             for (const message of conversation[0].messages) {

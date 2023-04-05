@@ -11,7 +11,8 @@ npx tsc
 A FAIRE PRIO 1
 *sensification a la casse pour la creaation de compte et pour la recherche de pseudo
 enlever les champs qui faut pas envoyer pour le random user
-refaire conv
+*refaire conv
+faire un like pour la recherche par tag
 
 A FAIRE PRIO 2
 Test
@@ -39,19 +40,22 @@ tweetController.getTweets = async (req,res)=> {
                 let userD = await User.getWithFilters({"_id":new ObjectId(tweet.retweet[0].userId)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0,reTweet:0 })
                 tweet.retweet[0].userDetails = userD[0]
             }
-            const userLikes = await User.getWithFilters({"_id":new ObjectId(req.auth.userId )},{_id:0, password: 0,tag:0,pseudo:0,photo:0,followers:0,follow:0,description:0,dateInscription:0,})
-            if(userLikes.length>0){
-                if(userLikes[0].likesTweet.includes(tweet._id.toString()))
-                    tweet.likeByUser = true
-                else
-                    tweet.likeByUser = false
-
-                if(userLikes[0].reTweet.includes(tweet._id.toString()))
-                    tweet.reTweetByUser = true
-                else
-                    tweet.reTweetByUser = false
+            console.log(req.auth)
+            if(req.auth != undefined)
+            {
+                const userLikes = await User.getWithFilters({"_id":new ObjectId(req.auth.userId )},{_id:0, password: 0,tag:0,pseudo:0,photo:0,followers:0,follow:0,description:0,dateInscription:0,})
+                if(userLikes.length>0){
+                    if(userLikes[0].likesTweet.includes(tweet._id.toString()))
+                        tweet.likeByUser = true
+                    else
+                        tweet.likeByUser = false
+    
+                    if(userLikes[0].reTweet.includes(tweet._id.toString()))
+                        tweet.reTweetByUser = true
+                    else
+                        tweet.reTweetByUser = false
+                }
             }
-            
                 
             tweetsWithDetails.push(tweet)
 
