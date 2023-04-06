@@ -1,4 +1,7 @@
 const User = require('../../Models/entity/User')
+const Tweet = require('../../Models/entity/Tweet')
+const tweetService = require('../services/tweetService')
+
 const jwt = require('jsonwebtoken');
 const userController = {}
 var ObjectId = require('mongodb').ObjectId;
@@ -57,11 +60,9 @@ userController.connexion = async (req,res)=> {
 }
 userController.getUserByTag = async (req,res)=> {
     try {
-        const docs = await User.getWithFilters({"tag":req.params.tag.toLowerCase()},{ password: 0 })
-        if(docs == 0)
-            res.status(404).send("")
-        else
-            res.status(200).json(docs)
+        let temp = req.params.tag.toLowerCase()
+        const docs = await User.getWithFilters({'tag': {'$regex': temp}},{ password: 0 })
+        res.status(200).json(docs)
     } catch (err) {
         res.status(404).send({err})
     }
@@ -137,7 +138,7 @@ userController.putUserById = async (req,res)=> {
 }
 userController.putUserFollow = async (req,res)=> {
     try { 
-        if(req.auth.userId == req.body.follower)
+       if(req.auth.userId == req.body.follower)
         {
             let resFollow = {}
             let resFollowers = {}
@@ -155,19 +156,26 @@ userController.putUserFollow = async (req,res)=> {
             else
                 res.status(200).json()
         }else{
-            res.status(401).send("")
+            res.status(401).send("ee")
         }
+        res.status(200).json()
     } catch (err) {
         res.status(404).send({err})
     }
 }
+
 userController.getFollowersByUserId = async (req,res)=> {
     try {
         const docs = await User.getWithFilters({"_id":new ObjectId(req.params.id)},{_id:0,tag:0,pseudo:0,photo:0,follow:0,description:0,dateInscription:0,password: 0,likesTweet:0,reTweet:0 })
-        if(docs == 0)
-            res.status(404).send("")
-        else
-            res.status(200).json(docs[0].followers)
+        
+        docs[0].followerslist = []
+        for (const oneFollower of docs[0].followers) {
+            let temp =  await User.getWithFilters({"_id":new ObjectId(oneFollower)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0,reTweet:0 })
+            docs[0].followerslist.push(temp[0])
+        }
+        delete docs[0].followers
+
+        res.status(200).json(docs[0].followerslist)
     } catch (err) {
         res.status(404).send({err})
     }
@@ -175,21 +183,40 @@ userController.getFollowersByUserId = async (req,res)=> {
 userController.getFollowsByUserId = async (req,res)=> {
     try {
         const docs = await User.getWithFilters({"_id":new ObjectId(req.params.id)},{_id:0,tag:0,pseudo:0,photo:0,followers:0,description:0,dateInscription:0,password: 0,likesTweet:0,reTweet:0 })
-        if(docs == 0)
-            res.status(404).send("")
-        else
-            res.status(200).json(docs[0].follow)
+        
+        docs[0].followlist = []
+        for (const oneFollow of docs[0].follow) {
+            let temp =  await User.getWithFilters({"_id":new ObjectId(oneFollow)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0,reTweet:0 })
+            docs[0].followlist.push(temp[0])
+        }
+        delete docs[0].follow
+
+        res.status(200).json(docs[0].followlist)
     } catch (err) {
         res.status(404).send({err})
     }
 }
 userController.getLikesTweetsByUserId = async (req,res)=> {
     try {
-        const docs = await User.getWithFilters({"_id":new ObjectId(req.params.id)},{_id:0,tag:0,pseudo:0,photo:0,followers:0,description:0,dateInscription:0,password: 0,follow:0,reTweet:0 })
-        if(docs == 0)
-            res.status(404).send("")
-        else
-            res.status(200).json(docs[0].likesTweet)
+        if(req.auth.userId == req.params.id)
+        {
+            const likedTweetsId = await User.getWithFilters({"_id":new ObjectId(req.params.id)},{_id:0,tag:0,pseudo:0,photo:0,followers:0,description:0,dateInscription:0,password: 0,follow:0,reTweet:0 })
+            if(likedTweetsId != [])
+            {
+                let obj = {$or:[ ]}
+                likedTweetsId[0].likesTweet.forEach(element => {
+                    obj.$or.push({"_id": new ObjectId(element)})
+                });
+
+                const tweets = await Tweet.getWithFilters(obj)
+                let likedTweetsWithDetails = await tweetService.getTweetsDetails(tweets,req.auth)
+
+                res.status(200).json(likedTweetsWithDetails)
+            }
+            res.status(200).json([])
+        }else{
+            res.status(401).send("")
+        }
     } catch (err) {
         res.status(404).send({err})
     }

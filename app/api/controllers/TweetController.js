@@ -1,5 +1,7 @@
 const Tweet = require('../../Models/entity/Tweet')
 const User = require('../../Models/entity/User')
+const tweetService = require('../services/tweetService')
+
 
 const tweetController = {}
 var ObjectId = require('mongodb').ObjectId;
@@ -9,9 +11,6 @@ COMMANDES
 npx tsc 
 
 A FAIRE PRIO 1
-*sensification a la casse pour la creaation de compte et pour la recherche de pseudo
-enlever les champs qui faut pas envoyer pour le random user
-*refaire conv
 faire un like pour la recherche par tag
 
 A FAIRE PRIO 2
@@ -21,48 +20,16 @@ reauthentification
 faire des retweet avec un message en plus
 baniere
 image dans un tweet
+projectino mongo faire avec des 1
 
 */ 
 
 tweetController.getTweets = async (req,res)=> {
     try {
         const tweets = await Tweet.getWithFilters()
-        let tweetsWithDetails = []
-        for (const tweet of tweets) {
-            tweet.userDetails = (await User.getWithFilters({"_id":new ObjectId(tweet.userId)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0,reTweet:0 }))[0]
-
-            if(tweet.comments){
-                for (const comment of tweet.comments) {
-                    comment.userDetails = (await User.getWithFilters({"_id":new ObjectId(comment.userId)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0,reTweet:0 }))[0]
-                }
-            }else{
-                tweet.retweet = await Tweet.getWithFilters({"_id":new ObjectId(tweet.tweetId)})
-                let userD = await User.getWithFilters({"_id":new ObjectId(tweet.retweet[0].userId)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0,reTweet:0 })
-                tweet.retweet[0].userDetails = userD[0]
-            }
-            console.log(req.auth)
-            if(req.auth != undefined)
-            {
-                const userLikes = await User.getWithFilters({"_id":new ObjectId(req.auth.userId )},{_id:0, password: 0,tag:0,pseudo:0,photo:0,followers:0,follow:0,description:0,dateInscription:0,})
-                if(userLikes.length>0){
-                    if(userLikes[0].likesTweet.includes(tweet._id.toString()))
-                        tweet.likeByUser = true
-                    else
-                        tweet.likeByUser = false
-    
-                    if(userLikes[0].reTweet.includes(tweet._id.toString()))
-                        tweet.reTweetByUser = true
-                    else
-                        tweet.reTweetByUser = false
-                }
-            }
-                
-            tweetsWithDetails.push(tweet)
-
-        }
+        let tweetsWithDetails = await tweetService.getTweetsDetails(tweets,req.auth)
         res.status(200).json(tweetsWithDetails)
     } catch (err) {
-        throw err
         res.status(400).send({err})
     }
 }
@@ -70,8 +37,9 @@ tweetController.getTweetsByUserId = async (req,res)=> {
     try {
         if(req.auth.userId == req.params.id)
         {
-            const docs = await Tweet.getWithFilters({"userId":req.params.id})
-            res.status(200).json(docs)
+            const tweets = await Tweet.getWithFilters({"userId":req.params.id})
+            let tweetsWithDetails = await tweetService.getTweetsDetails(tweets,req.auth)
+            res.status(200).json(tweetsWithDetails)
         }else{
             res.status(401).send("")
         }
@@ -95,41 +63,14 @@ tweetController.getTweetsOfFollows = async (req,res)=> {
                     });
     
                     const tweets = await Tweet.getWithFilters(obj)
-                
-                    for (const tweet of tweets) {
-                        tweet.userDetails = (await User.getWithFilters({"_id":new ObjectId(req.params.id)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0,reTweet:0 }))[0]
-    
-                        if(tweet.comments){
-                            for (const comment of tweet.comments) {
-                                comment.userDetails = (await User.getWithFilters({"_id":new ObjectId(comment.userId)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0,reTweet:0 }))[0]
-                            }
-                        }else{
-                            tweet.retweet = await Tweet.getWithFilters({"_id":new ObjectId(tweet.tweetId)})
-                            let userD = await User.getWithFilters({"_id":new ObjectId(tweet.retweet[0].userId)},{ password: 0,followers:0,follow:0,description:0,dateInscription:0,likesTweet:0,reTweet:0 })
-                            tweet.retweet[0].userDetails = userD[0]
-                        }
+                    let tweetsWithDetails = await tweetService.getTweetsDetails(tweets,req.auth)
 
-                        const userLikes = await User.getWithFilters({"_id":new ObjectId(req.auth.userId )},{_id:0, password: 0,tag:0,pseudo:0,photo:0,followers:0,follow:0,description:0,dateInscription:0,})
-                        if(userLikes.length>0){
-                            if(userLikes[0].likesTweet.includes(tweet._id.toString()))
-                                tweet.likeByUser = true
-                            else
-                                tweet.likeByUser = false
-            
-                            if(userLikes[0].reTweet.includes(tweet._id.toString()))
-                                tweet.reTweetByUser = true
-                            else
-                                tweet.reTweetByUser = false
-                        }
-                        
-                        tweetsWithDetails.push(tweet)
+                    res.status(200).json(tweetsWithDetails)
 
-                    
-                    }
                 }
                 
             }
-            res.status(200).json(tweetsWithDetails)
+            res.status(200).json([])
         }else{
             res.status(401).send("")
         }
@@ -246,7 +187,6 @@ tweetController.putLikeTweetById = async (req,res)=> {
             res.status(401).send("Pas le bon user")
         }
     } catch (err) {
-        throw err
         res.status(404).send({err})
     }
 }
